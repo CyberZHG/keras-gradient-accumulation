@@ -30,4 +30,5 @@ optimizer = GradientAccumulation('adam', accumulation_steps=8)
 
 ## 已知问题
 
+* 存在批归一化时不能使用
 * 与`OptimizerV2`不兼容

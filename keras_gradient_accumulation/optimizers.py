@@ -51,16 +51,17 @@ class GradientAccumulation(keras.optimizers.Optimizer):
             fake_iterations = K.maximum(fake_iterations, 1)
         acc_grads = [K.zeros(K.int_shape(p), dtype=K.dtype(p)) for p in params]
         for grad, acc_grad in zip(grads, acc_grads):
+            ave_grad = grad / K.cast(self.accumulation_steps, K.floatx())
             self.updates.append(K.update(
                 acc_grad,
                 K.switch(
                     K.equal(sub_step, 1),
-                    K.identity(grad),
-                    acc_grad + (grad - acc_grad) / K.cast(sub_step, K.floatx())
+                    ave_grad,
+                    acc_grad + (ave_grad - acc_grad) / K.cast(sub_step, K.floatx())
                 ),
             ))
         self.optimizer.get_gradients = lambda _loss, _params: \
-            [K.switch(update_cond, grad / K.cast(self.accumulation_steps, K.floatx()), K.zeros_like(grad))
+            [K.switch(update_cond, grad, K.zeros_like(grad))
              for grad in acc_grads]
 
         # Use fake iterations

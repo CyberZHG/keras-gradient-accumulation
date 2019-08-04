@@ -30,4 +30,5 @@ optimizer = GradientAccumulation('adam', accumulation_steps=8)
 
 ## Known Issues
 
+* Not available for batch normalization
 * Not compatible with `OptimizerV2`
