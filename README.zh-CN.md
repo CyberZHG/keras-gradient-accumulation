@@ -27,3 +27,7 @@ from keras_gradient_accumulation import GradientAccumulation
 
 optimizer = GradientAccumulation('adam', accumulation_steps=8)
 ```
+
+## 已知问题
+
+* 与`OptimizerV2`不兼容

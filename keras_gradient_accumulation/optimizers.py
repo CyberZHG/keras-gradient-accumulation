@@ -1,4 +1,4 @@
-from .backend import keras, optimizers
+from .backend import keras, optimizers, TF_KERAS
 from .backend import backend as K
 
 __all__ = ['GradientAccumulation']
@@ -40,6 +40,7 @@ class GradientAccumulation(keras.optimizers.Optimizer):
         sub_step = (self.iterations - 1) % self.accumulation_steps + 1
         acc_grads = [K.zeros(K.int_shape(p), dtype=K.dtype(p)) for p in params]
         for grad, acc_grad in zip(grads, acc_grads):
+
             self.updates.append(K.update(
                 acc_grad,
                 K.switch(
@@ -53,14 +54,26 @@ class GradientAccumulation(keras.optimizers.Optimizer):
              for grad in acc_grads]
 
         # Use fake iterations
-        fake_iterations = self.iterations // self.accumulation_steps
+        original_iterations = self.optimizer.iterations
+        fake_iterations = (self.iterations - 1) // self.accumulation_steps + 1
+        fake_iterations = K.maximum(fake_iterations, 1)
+        if TF_KERAS:
+            from tensorflow.python import state_ops
+            original_assign_add = getattr(state_ops, 'assign_add')
+            setattr(
+                state_ops,
+                'assign_add',
+                lambda ref, val: original_assign_add(ref, val) if ref is not fake_iterations
+                else original_assign_add(original_iterations, val)
+            )
+        else:
+            original_update_add = getattr(K, 'update_add')
+            setattr(
+                K,
+                'update_add',
+                lambda x, increment: original_update_add(x, increment) if x is not fake_iterations else None,
+            )
         self.optimizer.iterations = fake_iterations
-        original_update_add = getattr(K, 'update_add')
-        setattr(
-            K,
-            'update_add',
-            lambda x, increment: original_update_add(x, increment) if x is not fake_iterations else None,
-        )
 
         # Use fake learning rate
         self.optimizer.lr = K.switch(update_cond, self.lr, 0.0)
@@ -79,7 +92,13 @@ class GradientAccumulation(keras.optimizers.Optimizer):
         # Restore variables
         for name, value in momentum.items():
             setattr(self.optimizer, name, value)
-        self.optimizer.lr = self.lr
+        self.optimizer.lr = self._lr
+        self.optimizer.iterations = original_iterations
+        if TF_KERAS:
+            from tensorflow.python import state_ops
+            setattr(state_ops, 'assign_add', original_assign_add)
+        else:
+            setattr(K, 'update_add', original_update_add)
 
         return self.updates
 

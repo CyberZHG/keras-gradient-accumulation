@@ -6,6 +6,7 @@ import numpy as np
 from tensorflow.python.keras import optimizers
 
 from keras_gradient_accumulation.backend import keras, TF_KERAS
+from keras_gradient_accumulation.backend import backend as K
 from keras_gradient_accumulation import GradientAccumulation
 
 
@@ -30,7 +31,7 @@ class TestGradientAccumulation(TestCase):
     @staticmethod
     def gen_linear_data() -> (np.ndarray, np.ndarray):
         np.random.seed(0xcafe)
-        x = np.random.standard_normal((256 * np.random.randint(10, 20), 5))
+        x = np.random.standard_normal((256 * np.random.randint(20, 30), 5))
         w = np.random.standard_normal((5, 3))
         y = np.dot(x, w)
         return x, y
@@ -41,14 +42,6 @@ class TestGradientAccumulation(TestCase):
         model = self.gen_linear_model(optimizer)
         model.fit(x, y, batch_size=128)
         expected = model.get_layer('Dense').get_weights()[0]
-
-        model = self.gen_linear_model(optimizer)
-        model.fit(x, y, batch_size=16)
-        unwanted = model.get_layer('Dense').get_weights()[0]
-
-        max_diff = np.max(np.abs(unwanted - expected))
-        print(max_diff)
-        self.assertFalse(np.allclose(unwanted, expected, atol=0.1), (unwanted, expected))
 
         model = self.gen_linear_model(GradientAccumulation(optimizer, 128, **kwargs))
         if not TF_KERAS:
@@ -62,6 +55,10 @@ class TestGradientAccumulation(TestCase):
         print(max_diff)
 
         self.assertTrue(np.allclose(actual, expected, atol=0.1), (actual, expected))
+
+    def test_update_lr(self):
+        lr = GradientAccumulation(keras.optimizers.SGD(), 128).lr
+        K.set_value(lr, K.get_value(lr) * 0.5)
 
     def test_sgd(self):
         if TF_KERAS:

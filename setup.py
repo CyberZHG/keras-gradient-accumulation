@@ -11,13 +11,13 @@ with codecs.open('requirements.txt', 'r', 'utf8') as reader:
 
 setup(
     name='keras-gradient-accumulation',
-    version='0.0.1',
+    version='0.0.4',
     packages=find_packages(),
     url='https://github.com/CyberZHG/keras-gradient-accumulation',
     license='MIT',
     author='CyberZHG',
     author_email='CyberZHG@users.noreply.github.com',
-    description='Gradient accumulation in Keras',
+    description='Gradient accumulation for Keras',
     long_description=long_description,
     long_description_content_type='text/markdown',
     install_requires=install_requires,
