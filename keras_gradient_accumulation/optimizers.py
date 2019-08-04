@@ -35,12 +35,22 @@ class GradientAccumulation(keras.optimizers.Optimizer):
     def get_updates(self, loss, params):
         # Create accumulated gradients
         grads = self.get_gradients(loss, params)
-        self.updates = [K.update_add(self.iterations, 1)]
-        update_cond = K.equal(self.iterations % self.accumulation_steps, 0)
-        sub_step = (self.iterations - 1) % self.accumulation_steps + 1
+        if K.backend() == 'tensorflow':
+            from tensorflow.python.framework import ops
+            from tensorflow.python import state_ops
+            self.updates = []
+            with ops.control_dependencies([state_ops.assign_add(self.iterations, 1)]):
+                update_cond = K.equal(self.iterations % self.accumulation_steps, 0)
+                sub_step = (self.iterations - 1) % self.accumulation_steps + 1
+                fake_iterations = (self.iterations - 1) // self.accumulation_steps + 1
+        else:
+            self.updates = [K.update_add(self.iterations, 1)]
+            update_cond = K.equal(self.iterations % self.accumulation_steps, 0)
+            sub_step = (self.iterations - 1) % self.accumulation_steps + 1
+            fake_iterations = (self.iterations - 1) // self.accumulation_steps + 1
+            fake_iterations = K.maximum(fake_iterations, 1)
         acc_grads = [K.zeros(K.int_shape(p), dtype=K.dtype(p)) for p in params]
         for grad, acc_grad in zip(grads, acc_grads):
-
             self.updates.append(K.update(
                 acc_grad,
                 K.switch(
@@ -55,8 +65,6 @@ class GradientAccumulation(keras.optimizers.Optimizer):
 
         # Use fake iterations
         original_iterations = self.optimizer.iterations
-        fake_iterations = (self.iterations - 1) // self.accumulation_steps + 1
-        fake_iterations = K.maximum(fake_iterations, 1)
         if TF_KERAS:
             from tensorflow.python import state_ops
             original_assign_add = getattr(state_ops, 'assign_add')
