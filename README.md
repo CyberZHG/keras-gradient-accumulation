@@ -21,3 +21,9 @@ pip install keras-gradient-accumulation
 ```
 
 ## Usage
+
+```python
+from keras_gradient_accumulation import GradientAccumulation
+
+optimizer = GradientAccumulation('adam', accumulation_steps=8)
+```
