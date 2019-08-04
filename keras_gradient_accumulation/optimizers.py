@@ -36,13 +36,17 @@ class GradientAccumulation(keras.optimizers.Optimizer):
         # Create accumulated gradients
         grads = self.get_gradients(loss, params)
         self.updates = [K.update_add(self.iterations, 1)]
-        mod = self.iterations % self.accumulation_steps
-        update_cond = K.equal(mod, 0)
+        update_cond = K.equal(self.iterations % self.accumulation_steps, 0)
+        sub_step = (self.iterations - 1) % self.accumulation_steps + 1
         acc_grads = [K.zeros(K.int_shape(p), dtype=K.dtype(p)) for p in params]
         for grad, acc_grad in zip(grads, acc_grads):
             self.updates.append(K.update(
                 acc_grad,
-                K.switch(update_cond, grad, acc_grad + (grad - acc_grad) / K.cast(mod, K.floatx())),
+                K.switch(
+                    K.equal(sub_step, 1),
+                    K.identity(grad),
+                    acc_grad + (grad - acc_grad) / K.cast(sub_step, K.floatx())
+                ),
             ))
         self.optimizer.get_gradients = lambda _loss, _params: \
             [K.switch(update_cond, grad / K.cast(self.accumulation_steps, K.floatx()), K.zeros_like(grad))

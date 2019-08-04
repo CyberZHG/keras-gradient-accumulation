@@ -3,8 +3,9 @@ import tempfile
 from unittest import TestCase
 
 import numpy as np
+from tensorflow.python.keras import optimizers
 
-from keras_gradient_accumulation.backend import keras
+from keras_gradient_accumulation.backend import keras, TF_KERAS
 from keras_gradient_accumulation import GradientAccumulation
 
 
@@ -29,7 +30,7 @@ class TestGradientAccumulation(TestCase):
     @staticmethod
     def gen_linear_data() -> (np.ndarray, np.ndarray):
         np.random.seed(0xcafe)
-        x = np.random.standard_normal((256 * np.random.randint(1, 17), 5))
+        x = np.random.standard_normal((256 * np.random.randint(10, 20), 5))
         w = np.random.standard_normal((5, 3))
         y = np.dot(x, w)
         return x, y
@@ -41,20 +42,44 @@ class TestGradientAccumulation(TestCase):
         model.fit(x, y, batch_size=128)
         expected = model.get_layer('Dense').get_weights()[0]
 
+        model = self.gen_linear_model(optimizer)
+        model.fit(x, y, batch_size=16)
+        unwanted = model.get_layer('Dense').get_weights()[0]
+
+        max_diff = np.max(np.abs(unwanted - expected))
+        print(max_diff)
+        self.assertFalse(np.allclose(unwanted, expected, atol=0.1), (unwanted, expected))
+
         model = self.gen_linear_model(GradientAccumulation(optimizer, 128, **kwargs))
-        model_path = os.path.join(tempfile.gettempdir(), 'test_accumulation_%f.h5' % np.random.random())
-        model.save(model_path)
-        model = keras.models.load_model(model_path, custom_objects={'GradientAccumulation': GradientAccumulation})
+        if not TF_KERAS:
+            model_path = os.path.join(tempfile.gettempdir(), 'test_accumulation_%f.h5' % np.random.random())
+            model.save(model_path)
+            model = keras.models.load_model(model_path, custom_objects={'GradientAccumulation': GradientAccumulation})
         model.fit(x, y, batch_size=1)
         actual = model.get_layer('Dense').get_weights()[0]
 
-        self.assertTrue(np.allclose(actual, expected, atol=0.1), (actual, expected, np.max(np.abs(actual - expected))))
+        max_diff = np.max(np.abs(actual - expected))
+        print(max_diff)
+
+        self.assertTrue(np.allclose(actual, expected, atol=0.1), (actual, expected))
 
     def test_sgd(self):
-        self._test_accumulation('sgd')
+        if TF_KERAS:
+            optimizer = optimizers.SGD()
+        else:
+            optimizer = 'sgd'
+        self._test_accumulation(optimizer)
 
     def test_rmsprop(self):
-        self._test_accumulation('rmsprop')
+        if TF_KERAS:
+            optimizer = optimizers.RMSprop()
+        else:
+            optimizer = 'rmsprop'
+        self._test_accumulation(optimizer)
 
     def test_adam(self):
-        self._test_accumulation('adam')
+        if TF_KERAS:
+            optimizer = optimizers.Adam()
+        else:
+            optimizer = 'adam'
+        self._test_accumulation(optimizer)
