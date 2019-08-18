@@ -88,7 +88,7 @@ class AdamAccumulated(OptimizerV2):
         lr = (lr_t * math_ops.sqrt(1 - beta_2_power) / (1 - beta_1_power))
         lr = tf.where(update_cond, lr, 0.0)
 
-        g = self.get_slot(var, 'm')
+        g = self.get_slot(var, 'g')
         g_a = grad / math_ops.cast(accumulation_steps, var_dtype)
         g_t = tf.where(tf.equal(sub_step, 1),
                        g_a,
