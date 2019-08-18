@@ -11,7 +11,7 @@ with codecs.open('requirements.txt', 'r', 'utf8') as reader:
 
 setup(
     name='keras-gradient-accumulation',
-    version='0.0.4',
+    version='0.0.5',
     packages=find_packages(),
     url='https://github.com/CyberZHG/keras-gradient-accumulation',
     license='MIT',

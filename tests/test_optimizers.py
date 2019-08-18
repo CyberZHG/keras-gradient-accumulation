@@ -7,7 +7,7 @@ from tensorflow.python.keras import optimizers
 
 from keras_gradient_accumulation.backend import keras, TF_KERAS
 from keras_gradient_accumulation.backend import backend as K
-from keras_gradient_accumulation import GradientAccumulation
+from keras_gradient_accumulation import GradientAccumulation, AdamAccumulated
 
 
 class TestGradientAccumulation(TestCase):
@@ -15,7 +15,12 @@ class TestGradientAccumulation(TestCase):
     @staticmethod
     def gen_linear_model(optimizer: keras.optimizers.Optimizer) -> keras.models.Model:
         model = keras.models.Sequential()
-        model.add(keras.layers.Dense(input_shape=(5,), units=3, use_bias=False, name='Dense'))
+        model.add(keras.layers.Dense(
+            input_shape=(5,),
+            units=3,
+            use_bias=False,
+            bias_constraint=keras.constraints.max_norm(1e100),
+            name='Dense'))
         model.compile(optimizer, loss='mse')
         np.random.seed(0xcafe)
         model.get_layer('Dense').set_weights([np.random.standard_normal((5, 3))])
@@ -36,18 +41,23 @@ class TestGradientAccumulation(TestCase):
         y = np.dot(x, w)
         return x, y
 
-    def _test_accumulation(self, optimizer, **kwargs):
+    def _test_accumulation(self, optimizer, acc_optimizer=None, **kwargs):
         x, y = self.gen_linear_data()
 
         model = self.gen_linear_model(optimizer)
         model.fit(x, y, batch_size=128)
         expected = model.get_layer('Dense').get_weights()[0]
 
-        model = self.gen_linear_model(GradientAccumulation(optimizer, 128, **kwargs))
+        if acc_optimizer is None:
+            acc_optimizer = GradientAccumulation(optimizer, 128, **kwargs)
+        model = self.gen_linear_model(acc_optimizer)
         if not TF_KERAS:
             model_path = os.path.join(tempfile.gettempdir(), 'test_accumulation_%f.h5' % np.random.random())
             model.save(model_path)
-            model = keras.models.load_model(model_path, custom_objects={'GradientAccumulation': GradientAccumulation})
+            model = keras.models.load_model(model_path, custom_objects={
+                'GradientAccumulation': GradientAccumulation,
+                'AdamAccumulated': AdamAccumulated,
+            })
         model.fit(x, y, batch_size=1)
         actual = model.get_layer('Dense').get_weights()[0]
 
@@ -80,3 +90,17 @@ class TestGradientAccumulation(TestCase):
         else:
             optimizer = 'adam'
         self._test_accumulation(optimizer)
+
+    def test_adam_acc(self):
+        if TF_KERAS:
+            optimizer = optimizers.Adam()
+        else:
+            optimizer = 'adam'
+        self._test_accumulation(optimizer, AdamAccumulated(128), amsgrad=False, decay=1e-3)
+
+    def test_adam_acc_amsgrad(self):
+        if TF_KERAS:
+            optimizer = optimizers.Adam()
+        else:
+            optimizer = 'adam'
+        self._test_accumulation(optimizer, AdamAccumulated(128), amsgrad=True, decay=1e-4)
