@@ -3,7 +3,6 @@ import tempfile
 from unittest import TestCase
 
 import numpy as np
-from tensorflow.python.keras import optimizers
 
 from keras_gradient_accumulation.backend import keras, TF_KERAS
 from keras_gradient_accumulation.backend import backend as K
@@ -67,40 +66,28 @@ class TestGradientAccumulation(TestCase):
         self.assertTrue(np.allclose(actual, expected, atol=0.1), (actual, expected))
 
     def test_update_lr(self):
-        optimizer = GradientAccumulation(keras.optimizers.SGD(), 128)
-        optimizer.lr = K.variable(K.get_value(optimizer.lr) * 0.5)
+        if TF_KERAS:
+            return
+        optimizer = GradientAccumulation('sgd', 128)
+        optimizer.learning_rate = K.get_value(optimizer.learning_rate) * 0.5
 
     def test_sgd(self):
         if TF_KERAS:
-            optimizer = optimizers.SGD()
-        else:
-            optimizer = 'sgd'
-        self._test_accumulation(optimizer)
+            return
+        self._test_accumulation('sgd')
 
     def test_rmsprop(self):
         if TF_KERAS:
-            optimizer = optimizers.RMSprop()
-        else:
-            optimizer = 'rmsprop'
-        self._test_accumulation(optimizer)
+            return
+        self._test_accumulation('rmsprop')
 
     def test_adam(self):
         if TF_KERAS:
-            optimizer = optimizers.Adam()
-        else:
-            optimizer = 'adam'
-        self._test_accumulation(optimizer)
+            return
+        self._test_accumulation('adam')
 
     def test_adam_acc(self):
-        if TF_KERAS:
-            optimizer = optimizers.Adam()
-        else:
-            optimizer = 'adam'
-        self._test_accumulation(optimizer, AdamAccumulated(128, decay=1e-3), amsgrad=False, decay=1e-3)
+        self._test_accumulation('adam', AdamAccumulated(128, decay=1e-3), amsgrad=False, decay=1e-3)
 
     def test_adam_acc_amsgrad(self):
-        if TF_KERAS:
-            optimizer = optimizers.Adam()
-        else:
-            optimizer = 'adam'
-        self._test_accumulation(optimizer, AdamAccumulated(128, amsgrad=True, decay=1e-4), amsgrad=True, decay=1e-4)
+        self._test_accumulation('adam', AdamAccumulated(128, amsgrad=True, decay=1e-4), amsgrad=True, decay=1e-4)

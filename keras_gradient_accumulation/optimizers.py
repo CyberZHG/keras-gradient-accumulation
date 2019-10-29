@@ -1,7 +1,18 @@
+import tensorflow as tf
+
 from .backend import keras, optimizers, TF_KERAS
 from .backend import backend as K
 
 __all__ = ['GradientAccumulation']
+
+
+def identity(x):
+    return x
+
+
+symbolic = identity
+if hasattr(K, 'symbolic'):
+    symbolic = K.symbolic
 
 
 class GradientAccumulation(keras.optimizers.Optimizer):
@@ -13,7 +24,11 @@ class GradientAccumulation(keras.optimizers.Optimizer):
         momentum_names: A collection of strings. Names of momentum terms.
     """
 
-    def __init__(self, optimizer, accumulation_steps, momentum_names=None, **kwargs):
+    def __init__(self,
+                 optimizer,
+                 accumulation_steps,
+                 momentum_names=None,
+                 **kwargs):
         super(GradientAccumulation, self).__init__(**kwargs)
         self.optimizer = optimizers.get(optimizer)
         with K.name_scope(self.__class__.__name__):
@@ -22,33 +37,25 @@ class GradientAccumulation(keras.optimizers.Optimizer):
         if momentum_names is None:
             momentum_names = ['momentum', 'rho', 'beta_1', 'beta_2']
         self.momentum_names = momentum_names
-        self._lr = self.optimizer.lr
+        self._lr = self.optimizer.learning_rate
 
     @property
-    def lr(self):
-        return self._lr
+    def learning_rate(self):
+        return self.optimizer.learning_rate
 
-    @lr.setter
-    def lr(self, lr):
-        self._lr = lr
+    @learning_rate.setter
+    def learning_rate(self, learning_rate):
+        self.optimizer.learning_rate = learning_rate
 
+    @symbolic
     def get_updates(self, loss, params):
         # Create accumulated gradients
         grads = self.get_gradients(loss, params)
-        if K.backend() == 'tensorflow':
-            from tensorflow.python.framework import ops
-            from tensorflow.python import state_ops
-            self.updates = []
-            with ops.control_dependencies([state_ops.assign_add(self.iterations, 1)]):
-                update_cond = K.equal(self.iterations % self.accumulation_steps, 0)
-                sub_step = (self.iterations - 1) % self.accumulation_steps + 1
-                fake_iterations = (self.iterations - 1) // self.accumulation_steps + 1
-        else:
-            self.updates = [K.update_add(self.iterations, 1)]
+        self.updates = []
+        with tf.control_dependencies([self.iterations.assign_add(1)]):
             update_cond = K.equal(self.iterations % self.accumulation_steps, 0)
             sub_step = (self.iterations - 1) % self.accumulation_steps + 1
             fake_iterations = (self.iterations - 1) // self.accumulation_steps + 1
-            fake_iterations = K.maximum(fake_iterations, 1)
         acc_grads = [K.zeros(K.int_shape(p), dtype=K.dtype(p)) for p in params]
         for grad, acc_grad in zip(grads, acc_grads):
             ave_grad = grad / K.cast(self.accumulation_steps, K.floatx())
@@ -85,7 +92,7 @@ class GradientAccumulation(keras.optimizers.Optimizer):
         self.optimizer.iterations = fake_iterations
 
         # Use fake learning rate
-        self.optimizer.lr = K.switch(update_cond, self.lr, 0.0)
+        self.optimizer.learning_rate = K.switch(update_cond, self.lr, 0.0)
 
         # Freeze momentum
         momentum = {}
@@ -101,7 +108,7 @@ class GradientAccumulation(keras.optimizers.Optimizer):
         # Restore variables
         for name, value in momentum.items():
             setattr(self.optimizer, name, value)
-        self.optimizer.lr = self._lr
+        self.optimizer.learning_rate = self._lr
         self.optimizer.iterations = original_iterations
         if TF_KERAS:
             from tensorflow.python import state_ops

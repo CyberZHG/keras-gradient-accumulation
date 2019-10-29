@@ -4,6 +4,15 @@ from .backend import backend as K
 __all__ = ['AdamAccumulated']
 
 
+def identity(x):
+    return x
+
+
+symbolic = identity
+if hasattr(K, 'symbolic'):
+    symbolic = K.symbolic
+
+
 class AdamAccumulated(keras.optimizers.Optimizer):
     """Adam optimizer with gradient accumulation.
 
@@ -11,7 +20,7 @@ class AdamAccumulated(keras.optimizers.Optimizer):
 
     # Arguments
         accumulation_steps: int > 0. Update gradient in every accumulation steps.
-        lr: float >= 0. Learning rate.
+        learning_rate: float >= 0. Learning rate.
         beta_1: float, 0 < beta < 1. Generally close to 1.
         beta_2: float, 0 < beta < 1. Generally close to 1.
         epsilon: float >= 0. Fuzz factor. If `None`, defaults to `K.epsilon()`.
@@ -24,13 +33,14 @@ class AdamAccumulated(keras.optimizers.Optimizer):
         - [On the Convergence of Adam and Beyond](https://openreview.net/forum?id=ryQu7f-RZ)
     """
 
-    def __init__(self, accumulation_steps, lr=0.001, beta_1=0.9, beta_2=0.999,
+    def __init__(self, accumulation_steps, learning_rate=0.001, beta_1=0.9, beta_2=0.999,
                  epsilon=None, decay=0., amsgrad=False, **kwargs):
+        learning_rate = kwargs.pop('lr', learning_rate)
         super(AdamAccumulated, self).__init__(**kwargs)
         with K.name_scope(self.__class__.__name__):
             self.iterations = K.variable(0, dtype='int64', name='iterations')
             self.accumulation_steps = K.variable(accumulation_steps, dtype='int64', name='accumulation_steps')
-            self.lr = K.variable(lr, name='lr')
+            self.learning_rate = K.variable(learning_rate, name='learning_rate')
             self.beta_1 = K.variable(beta_1, name='beta_1')
             self.beta_2 = K.variable(beta_2, name='beta_2')
             self.decay = K.variable(decay, name='decay')
@@ -40,6 +50,7 @@ class AdamAccumulated(keras.optimizers.Optimizer):
         self.initial_decay = decay
         self.amsgrad = amsgrad
 
+    @symbolic
     def get_updates(self, loss, params):
         grads = self.get_gradients(loss, params)
         self.updates = [K.update_add(self.iterations, 1)]
@@ -99,7 +110,7 @@ class AdamAccumulated(keras.optimizers.Optimizer):
 
     def get_config(self):
         config = {'accumulation_steps': int(K.get_value(self.accumulation_steps)),
-                  'lr': float(K.get_value(self.lr)),
+                  'learning_rate': float(K.get_value(self.learning_rate)),
                   'beta_1': float(K.get_value(self.beta_1)),
                   'beta_2': float(K.get_value(self.beta_2)),
                   'decay': float(K.get_value(self.decay)),

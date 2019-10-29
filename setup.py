@@ -1,28 +1,43 @@
+import os
+import re
 import codecs
 from setuptools import setup, find_packages
 
-with codecs.open('README.md', 'r', 'utf8') as reader:
-    long_description = reader.read()
+current_path = os.path.abspath(os.path.dirname(__file__))
 
 
-with codecs.open('requirements.txt', 'r', 'utf8') as reader:
-    install_requires = list(map(lambda x: x.strip(), reader.readlines()))
+def read_file(*parts):
+    with codecs.open(os.path.join(current_path, *parts), 'r', 'utf8') as reader:
+        return reader.read()
+
+
+def get_requirements(*parts):
+    with codecs.open(os.path.join(current_path, *parts), 'r', 'utf8') as reader:
+        return list(map(lambda x: x.strip(), reader.readlines()))
+
+
+def find_version(*file_paths):
+    version_file = read_file(*file_paths)
+    version_match = re.search(r"^__version__ = ['\"]([^'\"]*)['\"]", version_file, re.M)
+    if version_match:
+        return version_match.group(1)
+    raise RuntimeError('Unable to find version string.')
 
 
 setup(
     name='keras-gradient-accumulation',
-    version='0.0.5',
+    version=find_version('keras_gradient_accumulation', '__init__.py'),
     packages=find_packages(),
     url='https://github.com/CyberZHG/keras-gradient-accumulation',
     license='MIT',
     author='CyberZHG',
     author_email='CyberZHG@users.noreply.github.com',
     description='Gradient accumulation for Keras',
-    long_description=long_description,
+    long_description=read_file('README.md'),
     long_description_content_type='text/markdown',
-    install_requires=install_requires,
+    install_requires=get_requirements('requirements.txt'),
     classifiers=(
-        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ),
