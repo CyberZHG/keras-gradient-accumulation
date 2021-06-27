@@ -59,7 +59,7 @@ class AdamAccumulated(keras.optimizers.Optimizer):
         sub_step = self.iterations % self.accumulation_steps + 1
         t = K.cast(self.iterations // self.accumulation_steps, K.floatx()) + 1
 
-        lr = self.lr
+        lr = self.learning_rate
         if self.initial_decay > 0:
             lr = lr * (1. / (1. + self.decay * K.cast(self.iterations, K.dtype(self.decay))))
 

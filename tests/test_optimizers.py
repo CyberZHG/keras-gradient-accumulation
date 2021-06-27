@@ -66,24 +66,16 @@ class TestGradientAccumulation(TestCase):
         self.assertTrue(np.allclose(actual, expected, atol=0.1), (actual, expected))
 
     def test_update_lr(self):
-        if TF_KERAS:
-            return
         optimizer = GradientAccumulation('sgd', 128)
         optimizer.learning_rate = K.get_value(optimizer.learning_rate) * 0.5
 
     def test_sgd(self):
-        if TF_KERAS:
-            return
         self._test_accumulation('sgd')
 
     def test_rmsprop(self):
-        if TF_KERAS:
-            return
         self._test_accumulation('rmsprop')
 
     def test_adam(self):
-        if TF_KERAS:
-            return
         self._test_accumulation('adam')
 
     def test_adam_acc(self):

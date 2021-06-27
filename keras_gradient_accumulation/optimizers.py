@@ -37,15 +37,18 @@ class GradientAccumulation(keras.optimizers.Optimizer):
         if momentum_names is None:
             momentum_names = ['momentum', 'rho', 'beta_1', 'beta_2']
         self.momentum_names = momentum_names
-        self._lr = self.optimizer.learning_rate
+        self._lr = self.optimizer.lr
+
+    def _create_slots(self, var_list):
+        self.optimizer._create_slots(var_list)
 
     @property
     def learning_rate(self):
-        return self.optimizer.learning_rate
+        return self.optimizer.lr
 
     @learning_rate.setter
     def learning_rate(self, learning_rate):
-        self.optimizer.learning_rate = learning_rate
+        self.optimizer.lr = learning_rate
 
     @symbolic
     def get_updates(self, loss, params):
@@ -92,7 +95,7 @@ class GradientAccumulation(keras.optimizers.Optimizer):
         self.optimizer.iterations = fake_iterations
 
         # Use fake learning rate
-        self.optimizer.learning_rate = K.switch(update_cond, self.lr, 0.0)
+        self.optimizer.lr = K.switch(update_cond, self._lr, 0.0)
 
         # Freeze momentum
         momentum = {}

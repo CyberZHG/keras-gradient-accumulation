@@ -1,7 +1,7 @@
 import tensorflow as tf
 from tensorflow.python.keras.optimizer_v2.optimizer_v2 import OptimizerV2
 from tensorflow.python import ops, math_ops, state_ops, control_flow_ops
-from tensorflow.python.keras import backend_config
+from tensorflow.python.keras import backend as K
 
 
 __all__ = ['AdamAccumulated']
@@ -52,7 +52,7 @@ class AdamAccumulated(OptimizerV2):
         self._set_hyper('decay', self._initial_decay)
         self._set_hyper('beta_1', beta_1)
         self._set_hyper('beta_2', beta_2)
-        self.epsilon = epsilon or backend_config.epsilon()
+        self.epsilon = epsilon or K.epsilon()
         self.amsgrad = amsgrad
 
     def _create_slots(self, var_list):
